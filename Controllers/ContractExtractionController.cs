@@ -57,9 +57,9 @@ public sealed class ContractExtractionController : ControllerBase
         CancellationToken ct)
     {
         var pdfBytes = await _blob.DownloadAsync(request.BlobName);
+
         var pages = await _di.ExtractPagesAsync(pdfBytes, ct);
         var fullText = DocumentIntelligenceService.JoinPages(pages);
-
         var extracted = await _extractor.ExtractAsync(fullText, ct);
         extracted = _merger.ApplyDefaultsAndOverrides(extracted, request.Defaults, request.Overrides);
 

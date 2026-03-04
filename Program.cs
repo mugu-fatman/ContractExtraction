@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IContractExtractor, OpenAiContractExtractor>();
 builder.Services.AddSingleton<ContractMerger>();
 builder.Services.AddSingleton<ContractValidator>();
 builder.Services.AddSingleton<ExcelTemplateWriter>();
+builder.Services.AddSingleton<LanguageDetectionService>();
 
 var app = builder.Build();
 

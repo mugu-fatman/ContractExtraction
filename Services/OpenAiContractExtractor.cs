@@ -15,12 +15,15 @@ public sealed class OpenAiContractExtractor : IContractExtractor
     private readonly OpenAIClient _client;
     private readonly string _deployment;
 
-    public OpenAiContractExtractor(IConfiguration cfg)
+    private readonly LanguageDetectionService _languageService;
+
+    public OpenAiContractExtractor(IConfiguration cfg, LanguageDetectionService languageService)
     {
         _client = new OpenAIClient(
             new Uri(cfg["AzureOpenAI:Endpoint"]!),
             new AzureKeyCredential(cfg["AzureOpenAI:ApiKey"]!)
         );
+        _languageService = languageService;
         _deployment = cfg["AzureOpenAI:Deployment"]!;
     }
 
@@ -29,9 +32,26 @@ public sealed class OpenAiContractExtractor : IContractExtractor
         // JSON “shape hint” (keeps output stable)
         var shapeHint = JsonSerializer.Serialize(new LeaseContractDto(),
             new JsonSerializerOptions { WriteIndented = true });
+        var sample = fullText.Substring(0, Math.Min(fullText.Length, 1500));
+        var language = await _languageService.DetectLanguageAsync(sample);
 
 var system = """
 You are a contract data extraction engine.
+
+DOCUMENT LANGUAGE:
+- The document language is: {language}
+- If language is "fi" (Finnish), interpret Finnish lease terminology correctly.
+  Examples:
+  - Vuokranantaja = Lessor (Owner)
+  - Vuokralainen = Lessee (ContractParty)
+  - Vuokrasopimus = Lease contract
+  - Vuokra / Vuokramaksu = Rent (Price)
+  - Vuokra-aika alkaa / Sopimus alkaa = StartDate / StartDateOfPosition
+  - Sopimus päättyy / Vuokra-aika päättyy = EndDateOfPosition
+  - Indeksiehto / Indeksisidonnainen = BoundToIndex (true) and IndexType
+  - Pinta-ala / m² / neliömetriä = AreaM2 / Quantity
+  - Maksuerä / Laskutustiheys / Maksutiheys = PaymentFrequency
+  - Eräpäivä = DueDate
 
 OUTPUT FORMAT (STRICT):
 - Return ONLY valid JSON.
@@ -63,6 +83,8 @@ Example date:
 """;
 
 var user = $"""
+Document language: {language}
+
 Return JSON that matches this exact shape (same property names). Keep properties you cannot find as null.
 
 JSON shape:
